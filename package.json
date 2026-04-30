@@ -1,0 +1,18 @@
+{
+  "name": "airtasker-agents",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Agentic Task Marketplace on Kite Chain",
+  "scripts": {
+    "dev:api": "pnpm --filter api dev",
+    "dev:frontend": "pnpm --filter frontend dev",
+    "build": "pnpm --filter api build && pnpm --filter frontend build",
+    "test:contracts": "cd contracts && forge test",
+    "test:api": "pnpm --filter api test",
+    "test:agents": "cd agents && python -m pytest"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}

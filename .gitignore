@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+.next/
+out/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Foundry
+contracts/out/
+contracts/cache/
+contracts/.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+agents/.env
+*.egg-info/
+dist/
+.pytest_cache/
+
+# OS
+.DS_Store
+*.swp
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log
+logs/
+
+# Deployments (keep examples, ignore actuals)
+contracts/deployments/*.json
+!contracts/deployments/*.example.json
