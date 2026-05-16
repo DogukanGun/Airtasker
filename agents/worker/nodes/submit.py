@@ -127,10 +127,24 @@ def submit_result(state: WorkerState) -> dict:
         loop.close()
 
         if response.status_code == 200:
-            return {
-                "phase":   "awaiting_review",
-                "messages": [HumanMessage(content=f"Result submitted successfully for task {task_id}.")],
-            }
+            # API recorded the submission; now finalize on chain (submitResult).
+            try:
+                from ...shared.chain_client import ChainClient
+                cc = ChainClient()
+                tx_hash = cc.submit_result(task_id, result_uri, result_hash)
+                return {
+                    "phase":    "awaiting_review",
+                    "messages": [HumanMessage(content=(
+                        f"Result submitted for task {task_id}. "
+                        f"On-chain submitResult tx={tx_hash}"
+                    ))],
+                }
+            except Exception as e:
+                return {
+                    "phase":         "error",
+                    "error_message": f"On-chain submitResult failed: {e}",
+                    "messages":      [HumanMessage(content=f"submitResult chain error: {e}")],
+                }
         else:
             return {
                 "phase":         "error",

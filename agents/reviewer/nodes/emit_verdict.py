@@ -64,9 +64,16 @@ def emit_verdict(state: ReviewerState) -> dict:
     async def _submit():
         from ...shared.bip32_session import SessionKeyManager
         from ...shared.x402_client import X402Client
+        from ...shared.siwe_auth import authenticate_session_key
+        from eth_account import Account
+
+        # SIWE: auth as the deployer wallet so the API's authMiddleware accepts us.
+        signer = Account.from_key(config.API_WALLET_PRIVATE_KEY)
+        token = authenticate_session_key(signer)
+
         skm = SessionKeyManager(config.MASTER_MNEMONIC)
         reviewer_task_id = task_id + 1_000_000
-        async with X402Client(skm, reviewer_task_id) as client:
+        async with X402Client(skm, reviewer_task_id, jwt_token=token) as client:
             resp = await client.post(
                 f"/api/reviews/{task_id}",
                 json={"verdict": verdict, "reason": reason},

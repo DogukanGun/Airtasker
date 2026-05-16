@@ -22,57 +22,38 @@ def discover_tasks(state: WorkerState) -> dict:
 
 
 def select_best_task(state: WorkerState) -> dict:
-    """Select the best task to bid on based on bounty and trust score requirements."""
-    messages = state.get("messages", [])
-
-    # Find tasks from the most recent discovery message
-    discovered = []
-    for msg in reversed(messages):
-        content = getattr(msg, "content", "")
-        if "open tasks" in content:
-            # Simple stub: parse the tasks from the last discovery
-            # In production, the LLM would reason about which task to pick
-            break
-
-    # If we have a task_id set already, use it; otherwise pick the first discovered task
-    task_id = state.get("task_id")
-
-    if not task_id:
-        # Fallback: extract task_id from last discovered tasks message
-        import ast, re
-        for msg in reversed(messages):
-            content = getattr(msg, "content", "")
-            match = re.search(r"'taskId': (\d+)", content)
-            if match:
-                task_id = int(match.group(1))
-                break
-
-    if not task_id:
-        return {
-            "phase": "completed",
-            "error_message": "Could not select a task",
-            "task_id": None,
-        }
+    """Select the best task to bid on, using the dict list stashed by discover_tasks."""
+    discovered = state.get("_discovered_tasks") or []
+    requested_id = state.get("task_id")
 
     task = None
-    for msg in reversed(messages):
-        content = getattr(msg, "content", "")
-        if f"'taskId': {task_id}" in content:
-            import ast
-            try:
-                # Find the task dict in the message
-                start = content.find("{")
-                task = ast.literal_eval(content[start:content.rfind("}") + 1])
-            except Exception:
-                pass
-            break
+    if requested_id is not None:
+        # Honor an explicit --task-id, regardless of category.
+        for t in discovered:
+            if t.get("taskId") == requested_id:
+                task = t
+                break
+        # Fall back to fetching it directly from chain if not in the discovered batch.
+        if task is None:
+            from ...shared.chain_client import ChainClient
+            task = ChainClient().get_task(requested_id)
+    elif discovered:
+        task = discovered[0]
 
+    if not task:
+        return {
+            "phase":         "completed",
+            "error_message": "Could not select a task",
+            "task_id":       None,
+        }
+
+    task_id = task.get("taskId")
     return {
-        "task_id":        task_id,
-        "task_metadata":  task,
-        "bounty_usdc":    task.get("bountyUSDC") if task else None,
-        "deadline":       task.get("deadline") if task else None,
-        "task_category":  task.get("category", "Research") if task else "Research",
-        "phase":          "bidding",
-        "messages":       [HumanMessage(content=f"Selected task {task_id} for bidding.")],
+        "task_id":       task_id,
+        "task_metadata": task,
+        "bounty_usdc":   task.get("bountyUSDC"),
+        "deadline":      task.get("deadline"),
+        "task_category": task.get("category", "Research"),
+        "phase":         "bidding",
+        "messages":      [HumanMessage(content=f"Selected task {task_id} for bidding.")],
     }

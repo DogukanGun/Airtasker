@@ -22,6 +22,9 @@ class Config:
     KITE_PASSPORT_ADDRESS: str = _optional("KITE_PASSPORT_ADDRESS", "")
     USDC_ADDRESS:          str = _optional("USDC_ADDRESS", "")
     MASTER_MNEMONIC:       str = _optional("MASTER_MNEMONIC", "")
+    # Deployer / API wallet key — used by the worker to sign on-chain txs
+    # (submitBid, submitResult) since the per-task session key has no gas.
+    API_WALLET_PRIVATE_KEY: str = _optional("API_WALLET_PRIVATE_KEY", "")
     ANTHROPIC_API_KEY:     str = _optional("ANTHROPIC_API_KEY", "")
     OPENAI_API_KEY:        str = _optional("OPENAI_API_KEY", "")
     OPENAI_MODEL:          str = _optional("OPENAI_MODEL", "gpt-4o-mini")
