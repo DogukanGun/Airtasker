@@ -2,7 +2,7 @@
 from __future__ import annotations
 from typing import Any
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-from langchain_anthropic import ChatAnthropic
+from langchain_openai import ChatOpenAI
 from ..state import WorkerState
 from ..tools.execution_tools import web_search, run_python_code, compute_content_hash, format_result_as_markdown
 from ...shared.config import config
@@ -43,9 +43,9 @@ def plan_execution(state: WorkerState) -> dict:
 
 def execute_task(state: WorkerState) -> dict:
     """ReAct execution node — calls LLM with tools, loops until result is ready."""
-    if not config.ANTHROPIC_API_KEY:
+    if not config.OPENAI_API_KEY:
         # Stub mode: generate a fake result for testing
-        result = "# Stub Result\n\nThis is a stub result for testing. Configure ANTHROPIC_API_KEY for real execution."
+        result = "# Stub Result\n\nThis is a stub result for testing. Configure OPENAI_API_KEY for real execution."
         from eth_hash.auto import keccak
         result_hash = "0x" + keccak(result.encode()).hex()
         return {
@@ -56,9 +56,9 @@ def execute_task(state: WorkerState) -> dict:
             "messages":          [AIMessage(content=f"Task completed (stub mode). Hash: {result_hash}")],
         }
 
-    llm = ChatAnthropic(
-        model="claude-sonnet-4-6",
-        api_key=config.ANTHROPIC_API_KEY,
+    llm = ChatOpenAI(
+        model=config.OPENAI_MODEL,
+        api_key=config.OPENAI_API_KEY,
     ).bind_tools(EXECUTION_TOOLS)
 
     messages = state.get("messages", [])

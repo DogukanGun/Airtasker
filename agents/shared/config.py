@@ -23,6 +23,8 @@ class Config:
     USDC_ADDRESS:          str = _optional("USDC_ADDRESS", "")
     MASTER_MNEMONIC:       str = _optional("MASTER_MNEMONIC", "")
     ANTHROPIC_API_KEY:     str = _optional("ANTHROPIC_API_KEY", "")
+    OPENAI_API_KEY:        str = _optional("OPENAI_API_KEY", "")
+    OPENAI_MODEL:          str = _optional("OPENAI_MODEL", "gpt-4o-mini")
     LANGSMITH_API_KEY:     str = _optional("LANGSMITH_API_KEY", "")
     LANGSMITH_TRACING:     bool = _optional("LANGSMITH_TRACING", "false").lower() == "true"
     PINATA_JWT:            str = _optional("PINATA_JWT", "")

@@ -1,6 +1,7 @@
 langgraph>=0.2.0
 langchain>=0.3.0
 langchain-anthropic>=0.3.0
+langchain-openai>=0.2.0
 web3>=7.0.0
 eth-account>=0.13.0
 bip-utils>=2.9.3

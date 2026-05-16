@@ -9,7 +9,9 @@
     "build": "pnpm --filter api build && pnpm --filter frontend build",
     "test:contracts": "cd contracts && forge test",
     "test:api": "pnpm --filter api test",
-    "test:agents": "cd agents && python -m pytest"
+    "test:agents": "cd agents && python -m pytest",
+    "deploy:local": "cd contracts && PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 forge script script/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast",
+    "deploy:testnet": "cd contracts && DEPLOYMENT_FILE=deployments/kite-testnet.json forge script script/Deploy.s.sol --rpc-url $RPC_URL --broadcast --slow"
   },
   "engines": {
     "node": ">=20.0.0",

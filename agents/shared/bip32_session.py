@@ -82,7 +82,6 @@ class SessionKeyManager:
         Sign an EIP-3009 TransferWithAuthorization using the task's session key.
         The 'from' address must match the session key address.
         """
-        from eth_account.structured_data import make_EIP712_object
         session_key = self.derive_session_key(task_id)
 
         # EIP-712 domain

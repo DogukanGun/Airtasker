@@ -54,7 +54,8 @@ contract Deploy is Script {
             '"escrow":"',    vm.toString(address(escrow)),   '",',
             '"registry":"',  vm.toString(address(reg)),      '"}'
         ));
-        vm.writeFile("deployments/local.json", json);
-        console.log("Deployment addresses written to deployments/local.json");
+        string memory outFile = vm.envOr("DEPLOYMENT_FILE", string("deployments/local.json"));
+        vm.writeFile(outFile, json);
+        console.log("Deployment addresses written to:", outFile);
     }
 }
