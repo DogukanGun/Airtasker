@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MermaidDiagram } from "@/components/MermaidDiagram";
 
 export const metadata = {
   title: "Architecture — AirtaskerAgents",
@@ -12,6 +13,134 @@ const CONTRACTS = {
   KitePassport: "0xb32B7CD58B137E711EF2577a857eF3A972A81425",
   MockUSDC:     "0x2ec2814c6f623E9e2393CcbB7b751Fc4e74ab4c5",
 };
+
+// ───── Mermaid diagram sources (kept in sync with README.md) ──────────
+
+const SYSTEM_GRAPH = `graph TB
+    subgraph Browser["Frontend · Next.js + wagmi"]
+        UI[Marketplace UI]
+        MM[MetaMask]
+    end
+
+    subgraph Backend["API · Node + Express"]
+        AUTH[SIWE Auth Middleware]
+        X402[x402 Payment Middleware]
+        IPFS[Pinata IPFS Service]
+        OWNER[Owner Signer<br/>triggerCompletion]
+    end
+
+    subgraph Agents["Agents · Python + LangGraph"]
+        WORKER[Worker Agent<br/>discover → bid → execute → submit]
+        REVIEWER[Reviewer Agent<br/>fetch → verify → emit verdict]
+    end
+
+    subgraph Chain["Kite Testnet"]
+        REG[TaskRegistry<br/>lifecycle + bids]
+        ESC[TaskEscrow<br/>USDC custody]
+        KP[KitePassport<br/>reputation]
+        USDC[MockUSDC<br/>ERC-20 + EIP-3009]
+    end
+
+    UI -->|connect| MM
+    MM -->|sign + send| REG
+    UI -->|POST /api/tasks| AUTH
+    AUTH --> IPFS
+    IPFS --> UI
+
+    WORKER -->|getOpenTasks| REG
+    WORKER -->|submitBid| REG
+    WORKER -->|POST /api/submissions| X402
+    WORKER -->|submitResult| REG
+
+    REVIEWER -->|GET submission| AUTH
+    REVIEWER -->|POST /api/reviews| X402
+    X402 -->|verdict=PASS| OWNER
+    OWNER -->|triggerCompletion| REG
+
+    REG --> ESC
+    REG --> KP
+    ESC --> USDC`;
+
+const LIFECYCLE_SEQ = `sequenceDiagram
+    autonumber
+    participant P as Poster (UI)
+    participant API
+    participant IPFS as Pinata
+    participant REG as TaskRegistry
+    participant ESC as TaskEscrow
+    participant W as Worker
+    participant R as Reviewer
+    participant KP as KitePassport
+
+    P->>API: SIWE sign-in (nonce + signature)
+    API-->>P: JWT
+    P->>API: POST /api/tasks
+    API->>IPFS: pin metadata
+    IPFS-->>API: CID
+    P->>REG: approve(USDC) + postTask
+    REG->>ESC: deposit bounty
+
+    W->>REG: getOpenTasks
+    W->>W: derive m/44'/60'/0'/{taskId}'/0
+    W->>REG: submitBid (sessionKeyProof)
+    P->>REG: acceptBid
+    W->>W: execute (LangGraph + LLM)
+    W->>IPFS: pin result
+    W->>API: POST /api/submissions (x402)
+    W->>REG: submitResult
+
+    R->>API: GET submission
+    R->>R: verify hash + content
+    R->>API: POST /api/reviews (x402, verdict)
+    API->>REG: triggerCompletion (onlyOwner)
+    REG->>ESC: release
+    ESC-->>W: bounty (minus fee)
+    REG->>KP: reward +50`;
+
+const X402_FLOW = `sequenceDiagram
+    participant A as Agent
+    participant API
+    A->>API: POST /api/submissions
+    API-->>A: 402 Payment Required<br/>{ token, amount, recipient }
+    A->>A: sign EIP-3009<br/>transferWithAuthorization
+    A->>API: retry with X-Payment header
+    API->>API: verifyTransferAuthorization
+    API-->>A: 200 + result`;
+
+const BIP32_GRAPH = `graph LR
+    M[Master Mnemonic] -->|derive| S1["Task 1 key<br/>m/44'/60'/0'/1'/0"]
+    M -->|derive| S2["Task 2 key<br/>m/44'/60'/0'/2'/0"]
+    M -->|derive| S3["Task N key<br/>m/44'/60'/0'/N'/0"]
+    S1 -.->|signs bids + payments<br/>for Task 1 only| T1[Task 1]
+    S2 -.->|isolated| T2[Task 2]
+    S3 -.->|isolated| TN[Task N]`;
+
+const CONTRACT_CLASSES = `classDiagram
+    class TaskRegistry {
+        +mapping tasks
+        +mapping bids
+        +postTask()
+        +postTaskWithAuthorization()
+        +submitBid()
+        +acceptBid()
+        +submitResult()
+        +triggerCompletion() onlyOwner
+    }
+    class TaskEscrow {
+        +mapping entries
+        +deposit() onlyRegistry
+        +release() onlyRegistry
+        +refund() onlyRegistry
+    }
+    class KitePassport {
+        +mapping passports
+        +register()
+        +rewardCompletion() onlyRegistry
+        +penalizeDispute() onlyRegistry
+        +meetsMinimum()
+    }
+    TaskRegistry --> TaskEscrow : deposits / releases
+    TaskRegistry --> KitePassport : rewards / penalizes`;
 
 export default function ArchitecturePage() {
   return (
@@ -84,35 +213,7 @@ export default function ArchitecturePage() {
           ))}
         </div>
 
-        <div className="rounded-xl border p-6 bg-muted/30 font-mono text-xs overflow-x-auto">
-          <pre className="leading-relaxed">{`
-   Poster (browser)            Worker Agent              Reviewer Agent
-        │                          │                          │
-        │ sign-in (SIWE)           │ getOpenTasks()           │ getSubmission()
-        │ pin task to IPFS         │ submit bid on-chain      │ verify hash
-        │ approve + postTask       │ wait for accept          │ x402 verdict
-        │                          │ execute (LLM + tools)    │
-        │                          │ pin result to IPFS       │
-        │                          │ x402 submit to API       │
-        │                          │ submitResult on-chain    │
-        ▼                          ▼                          ▼
- ┌──────────────────────────────────────────────────────────────────┐
- │                       Backend  API  (Node)                       │
- │  /api/agents/auth   /api/tasks   /api/submissions   /api/reviews │
- │  SIWE → JWT         IPFS pin     x402 + verify      triggerComp. │
- └──────────────┬───────────────────────────────────────────────────┘
-                │
-                ▼
- ┌──────────────────────────────────────────────────────────────────┐
- │                         Kite Testnet                              │
- │   TaskRegistry  ─────  TaskEscrow  ─────  KitePassport            │
- │      (lifecycle)         (custody)         (reputation)           │
- │              ▲                                  ▲                 │
- │              └─────────── MockUSDC ─────────────┘                 │
- │                  (ERC-20 + EIP-3009 for atomic deposit)           │
- └──────────────────────────────────────────────────────────────────┘
-          `}</pre>
-        </div>
+        <MermaidDiagram chart={SYSTEM_GRAPH} />
       </section>
 
       {/* Lifecycle */}
@@ -126,6 +227,9 @@ export default function ArchitecturePage() {
           </p>
         </header>
 
+        <MermaidDiagram chart={LIFECYCLE_SEQ} />
+
+        <h3 className="text-lg font-semibold pt-2">Step-by-step</h3>
         <ol className="space-y-3">
           {[
             { n: 1, title: "Sign-in (SIWE)", body: "Poster signs a nonce → API issues a JWT. No password, no account.", tag: "off-chain" },
@@ -172,7 +276,7 @@ export default function ArchitecturePage() {
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <article className="rounded-xl border p-5 space-y-2">
+          <article className="rounded-xl border p-5 space-y-3 md:col-span-2">
             <div className="text-xs font-mono text-muted-foreground">x402</div>
             <h3 className="font-bold">HTTP 402 as a payment protocol</h3>
             <p className="text-sm">
@@ -182,9 +286,10 @@ export default function ArchitecturePage() {
               it as a header, retries — and gets the resource. Machine-to-machine
               billing without invoices, sessions, or pre-funded balances.
             </p>
+            <MermaidDiagram chart={X402_FLOW} />
           </article>
 
-          <article className="rounded-xl border p-5 space-y-2">
+          <article className="rounded-xl border p-5 space-y-3 md:col-span-2">
             <div className="text-xs font-mono text-muted-foreground">BIP-32</div>
             <h3 className="font-bold">Hardened per-task session keys</h3>
             <p className="text-sm">
@@ -193,6 +298,7 @@ export default function ArchitecturePage() {
               If the worker process is compromised, only the in-flight task's
               key is exposed — historical and future tasks remain safe.
             </p>
+            <MermaidDiagram chart={BIP32_GRAPH} />
           </article>
 
           <article className="rounded-xl border p-5 space-y-2">
@@ -292,6 +398,11 @@ export default function ArchitecturePage() {
         <div className="text-sm text-muted-foreground">
           <strong>Test coverage:</strong> 27 Foundry tests, all green.
           <code className="ml-2">forge test</code>.
+        </div>
+
+        <div className="space-y-3 pt-4">
+          <h3 className="text-lg font-semibold">Storage model</h3>
+          <MermaidDiagram chart={CONTRACT_CLASSES} />
         </div>
       </section>
 
